@@ -1,0 +1,7 @@
+__pycache__/
+*.pth
+*.pt
+data/
+runs/
+checkpoints/
+.vscode/
