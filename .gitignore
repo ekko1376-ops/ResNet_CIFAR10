@@ -5,3 +5,4 @@ data/
 runs/
 checkpoints/
 .vscode/
+dataset/

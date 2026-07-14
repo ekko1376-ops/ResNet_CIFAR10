@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
+import os
+import csv
 from torch.utils.data import DataLoader
 from model import ResNet18
 
@@ -11,7 +13,7 @@ print("当前使用设备：",device)
 
 batch_size=128
 learning_rate=0.1
-num_epochs=10
+num_epochs=80
 
 train_transform=transforms.Compose([
     transforms.RandomCrop(32,padding=4),
@@ -35,13 +37,13 @@ train_data=torchvision.datasets.CIFAR10(
     root='./data',
     train=True,
     transform=train_transform,
-    download=True
+    download=False
 )
 test_data=torchvision.datasets.CIFAR10(
     root='./data',
     train=False,
     transform=test_transform,
-    download=True
+    download=False
 )
 
 train_loader=DataLoader(
@@ -64,6 +66,11 @@ optimizer=optim.SGD(
     lr=learning_rate,
     momentum=0.9,
     weight_decay=5e-4
+)
+
+scheduler = optim.lr_scheduler.CosineAnnealingLR(
+    optimizer,
+    T_max=num_epochs
 )
 
 def train_one_epoch(model,train_loader,criterion,optimizer,device):
@@ -115,7 +122,7 @@ def evaluate(model,test_loader,criterion,device):
             outputs=model(images)
             loss=criterion(outputs,labels)
 
-            ruuning_loss+=loss
+            ruuning_loss+=loss.item()
 
             _,predicted=outputs.max(1)
             total+=labels.size(0)
@@ -127,6 +134,14 @@ def evaluate(model,test_loader,criterion,device):
 
 if __name__ == "__main__":
     best_acc=0.0
+
+    os.makedirs("logs", exist_ok=True)
+    log_path = "logs/train_log.csv"
+
+    with open(log_path, mode="w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["epoch", "train_loss", "train_acc", "test_loss", "test_acc", "lr"])
+
     for epoch in range(num_epochs):
         print(f'Epoch[{epoch+1}/{num_epochs}]')
 
@@ -144,6 +159,20 @@ if __name__ == "__main__":
             criterion,
             device
         )
+        current_lr = optimizer.param_groups[0]["lr"]
+
+        with open(log_path, mode="a", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                epoch + 1,
+                train_loss,
+                train_acc,
+                test_loss,
+                test_acc,
+                current_lr
+            ])
+
+        scheduler.step()
 
         print(f"Train Loss: {train_loss:.4f}")
         print(f"Train Acc: {train_acc:.2f}%")
@@ -154,4 +183,4 @@ if __name__ == "__main__":
             best_acc=test_acc
             torch.save(model.state_dict(),f'best_model{epoch+1}.pth')
             print(f'save the best model with acc:{best_acc}')
-        print('*'*50)
+            print('*'*50)
